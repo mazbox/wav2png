@@ -1,7 +1,10 @@
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 cmake_minimum_required(VERSION 3.16)
-project(wav2png)
+project(
+  wav2png
+  VERSION 1.0
+  LANGUAGES CXX)
 add_compile_options(-fcolor-diagnostics)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 14)
