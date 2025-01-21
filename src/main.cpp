@@ -27,7 +27,7 @@ static float mapf(float inp, float inMin, float inMax, float outMin,
   return f;
 }
 
-#include "wav2png.h"
+#include <wav2png/wav2png.h>
 
 bool verbose = false;
 
