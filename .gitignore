@@ -1,3 +1,4 @@
 build
 *.prev
 *.png
+cmake-build
