@@ -5,24 +5,15 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-static float clampf(float inp, float from, float to) {
-  if (inp < from)
-    return from;
-  if (inp > to)
-    return to;
-  return inp;
-}
-
 static float mapf(float inp, float inMin, float inMax, float outMin,
                   float outMax, bool clamp = false) {
   float norm = (inp - inMin) / (inMax - inMin);
   float f = outMin + (outMax - outMin) * norm;
   if (clamp) {
     if (outMax > outMin) {
-      return clampf(f, outMin, outMax);
-    } else {
-      return clampf(f, outMax, outMin);
+      return std::clamp(f, outMin, outMax);
     }
+    return std::clamp(f, outMax, outMin);
   }
   return f;
 }

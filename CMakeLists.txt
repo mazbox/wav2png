@@ -7,7 +7,7 @@ project(
   LANGUAGES CXX)
 add_compile_options(-fcolor-diagnostics)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 option(BUILD_STANDALONE "Should there be a standalone of the application?" OFF)
 
@@ -24,8 +24,9 @@ else()
 
   add_library(wav2png INTERFACE)
   target_include_directories(
-    wav2png INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    wav2png
+    INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/wav2png>
+              $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
   include(CPM.cmake)
 

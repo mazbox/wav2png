@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <stdio.h>
 #include <string>
@@ -29,8 +31,8 @@ static std::vector<MinMax> createPreviewFromWav(const std::vector<float> &wav,
       minVal = std::min(minVal, wav[p]);
       maxVal = std::max(maxVal, wav[p]);
     }
-    minVal = clampf(minVal, -1, 1);
-    maxVal = clampf(maxVal, -1, 1);
+    minVal = std::clamp(minVal, -1.f, 1.f);
+    maxVal = std::clamp(maxVal, -1.f, 1.f);
     preview.push_back({minVal, maxVal});
   }
 
