@@ -30,7 +30,6 @@ static std::vector<MinMax> createPreviewFromWav(const std::vector<float> &wav, i
 		float minVal = wav[from];
 		float maxVal = minVal;
 
-		printf("%d %d\n", from, to);
 		for (int p = from; p < to; p++) {
 			minVal = std::min(minVal, wav[p]);
 			maxVal = std::max(maxVal, wav[p]);
