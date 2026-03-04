@@ -13,11 +13,15 @@ option(BUILD_STANDALONE "Should there be a standalone of the application?" OFF)
 
 if(BUILD_STANDALONE)
   include(CPM.cmake)
-  cpmaddpackage("gh:colugomusic/blahdio#b67a349")
+  cpmaddpackage(
+    NAME dr_libs
+    GITHUB_REPOSITORY "mackron/dr_libs"
+    GIT_TAG fa931f3
+    DOWNLOAD_ONLY YES)
   add_executable(wav2png src/main.cpp)
   target_include_directories(wav2png
-                             PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  target_link_libraries(wav2png blahdio)
+                             PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+                                     ${dr_libs_SOURCE_DIR})
 else()
 
   include(GNUInstallDirs)

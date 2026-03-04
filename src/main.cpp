@@ -1,6 +1,9 @@
-
-
-#include "blahdio/audio_reader.h"
+#define DR_FLAC_IMPLEMENTATION
+#include "dr_flac.h"
+#define DR_WAV_IMPLEMENTATION
+#include "dr_wav.h"
+#define DR_MP3_IMPLEMENTATION
+#include "dr_mp3.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -9,163 +12,193 @@
 
 bool verbose = false;
 
-static std::vector<float> readFileToMono(std::string path) {
+static std::vector<float> readFlac(const std::string &path) {
+	unsigned int channels, sampleRate;
+	drflac_uint64 totalFrames;
+	float *data = drflac_open_file_and_read_pcm_frames_f32(path.c_str(), &channels, &sampleRate, &totalFrames, nullptr);
+	if (!data) return {};
 
-  std::vector<float> out;
-  // Assume that the file type is WAV. Blahdio will try that first, but if it
-  // fails to read a valid WAV header it will also try MP3, FLAC and WavPack.
-  blahdio::AudioReader reader(path);
+	std::vector<float> mono(totalFrames);
+	for (drflac_uint64 i = 0; i < totalFrames; i++) {
+		float sum = 0;
+		for (unsigned int c = 0; c < channels; c++) {
+			sum += data[i * channels + c];
+		}
+		mono[i] = sum / (float)channels;
+	}
 
-  // Read the header.
-  reader.read_header(); // Will throw an exception if the file
-                        // type couldn't be deduced.
+	if (verbose) {
+		printf("File: %s\nformat: FLAC\nduration: %.1fs\nframes: %llu\nchannels: %d\nsample rate: %d\n",
+			   path.c_str(), totalFrames / (double)sampleRate, totalFrames, channels, sampleRate);
+	}
 
-  const auto num_frames = reader.get_num_frames();
-  const auto num_channels = reader.get_num_channels();
-  const auto sample_rate = reader.get_sample_rate();
-  const auto bit_depth = reader.get_bit_depth();
+	drflac_free(data, nullptr);
+	return mono;
+}
 
-  double duration = num_frames / (double)sample_rate;
+static std::vector<float> readWav(const std::string &path) {
+	unsigned int channels, sampleRate;
+	drwav_uint64 totalFrames;
+	float *data = drwav_open_file_and_read_pcm_frames_f32(path.c_str(), &channels, &sampleRate, &totalFrames, nullptr);
+	if (!data) return {};
 
-  if (verbose) {
-    printf("File: %s\n", path.c_str());
-    printf("duration: %.1fs\nframes: %llu\nchannels: %d\nsample rate: %d\nbit "
-           "depth: %d\n",
-           duration, num_frames, num_channels, sample_rate, bit_depth);
-  }
-  blahdio::AudioReader::Callbacks reader_callbacks;
+	std::vector<float> mono(totalFrames);
+	for (drwav_uint64 i = 0; i < totalFrames; i++) {
+		float sum = 0;
+		for (unsigned int c = 0; c < channels; c++) {
+			sum += data[i * channels + c];
+		}
+		mono[i] = sum / (float)channels;
+	}
 
-  reader_callbacks.should_abort = []() { return false; };
+	if (verbose) {
+		printf("File: %s\nformat: WAV\nduration: %.1fs\nframes: %llu\nchannels: %d\nsample rate: %d\n",
+			   path.c_str(), totalFrames / (double)sampleRate, totalFrames, channels, sampleRate);
+	}
 
-  reader_callbacks.return_chunk = [&](const void *data, std::uint64_t frame,
-                                      std::uint32_t num_frames) {
-    float *d = (float *)data;
+	drwav_free(data, nullptr);
+	return mono;
+}
 
-    if (num_frames == 1) {
-      out.insert(out.end(), d, d + num_frames);
-    } else {
-      for (int i = 0; i < num_frames; i += num_channels) {
-        float total = 0;
-        for (int j = 0; j < num_channels; j++) {
-          total += d[i + j];
-        }
-        out.push_back(total / (float)num_channels);
-      }
-    }
-  };
+static std::vector<float> readMp3(const std::string &path) {
+	drmp3_config config;
+	drmp3_uint64 totalFrames;
+	float *data = drmp3_open_file_and_read_pcm_frames_f32(path.c_str(), &config, &totalFrames, nullptr);
+	if (!data) return {};
 
-  // Read file 512 frames at a time
-  reader.read_frames(reader_callbacks, 512); // Will throw an exception if an
-                                             // error occurs during reading
-  return out;
+	std::vector<float> mono(totalFrames);
+	for (drmp3_uint64 i = 0; i < totalFrames; i++) {
+		float sum = 0;
+		for (unsigned int c = 0; c < config.channels; c++) {
+			sum += data[i * config.channels + c];
+		}
+		mono[i] = sum / (float)config.channels;
+	}
+
+	if (verbose) {
+		printf("File: %s\nformat: MP3\nduration: %.1fs\nframes: %llu\nchannels: %d\nsample rate: %d\n",
+			   path.c_str(), totalFrames / (double)config.sampleRate, totalFrames, config.channels, config.sampleRate);
+	}
+
+	drmp3_free(data, nullptr);
+	return mono;
+}
+
+static std::string getExtension(const std::string &path) {
+	auto dot = path.rfind('.');
+	if (dot == std::string::npos) return "";
+	std::string ext = path.substr(dot + 1);
+	for (auto &c : ext) c = tolower(c);
+	return ext;
+}
+
+static std::vector<float> readFileToMono(const std::string &path) {
+	auto ext = getExtension(path);
+
+	// Try by extension first
+	if (ext == "flac") return readFlac(path);
+	if (ext == "wav") return readWav(path);
+	if (ext == "mp3") return readMp3(path);
+
+	// Try all formats
+	auto data = readWav(path);
+	if (!data.empty()) return data;
+	data = readFlac(path);
+	if (!data.empty()) return data;
+	data = readMp3(path);
+	return data;
 }
 
 void printUsage() {
-  printf(
-      "Usage:                                                             \n"
-      "       wav2png audio.wav -o wav.png [options]                      \n"
-      "                                                                   \n"
-      "       Options:                                                    \n"
-      "                 -o file sets the output (default is [filename].png\n"
-      "                 -w nn   sets the width (default 256)              \n"
-      "                 -h nn   sets the height (default 256)             \n"
-      "                 -v      verbose flag                              \n"
-      "                 -b      binary output flag (.prev format)         \n");
+	printf(
+		"Usage:                                                             \n"
+		"       wav2png audio.wav -o wav.png [options]                      \n"
+		"                                                                   \n"
+		"       Options:                                                    \n"
+		"                 -o file sets the output (default is [filename].png\n"
+		"                 -w nn   sets the width (default 256)              \n"
+		"                 -h nn   sets the height (default 256)             \n"
+		"                 -v      verbose flag                              \n"
+		"                 -b      binary output flag (.prev format)         \n");
 }
 
-bool tryToFindFlag(std::string argName, int argc, char **argv,
-                   bool defaultVal = false) {
-  for (int i = 0; i < argc; i++) {
-    if (argv[i] == argName)
-      return true;
-  }
-  return false;
+bool tryToFindFlag(std::string argName, int argc, char **argv, bool defaultVal = false) {
+	for (int i = 0; i < argc; i++) {
+		if (argv[i] == argName) return true;
+	}
+	return false;
 }
 
-int tryToFindArgValue(std::string argName, int argc, char **argv,
-                      int defaultVal) {
-  try {
-    for (int i = 0; i < argc - 1; i++) {
-      if (argv[i] == argName) {
-        return std::stoi(argv[i + 1]);
-      }
-    }
-  } catch (const std::invalid_argument &err) {
-    printf("invalid value for %s - using default of %d\n", argName.c_str(),
-           defaultVal);
-  }
-
-  return defaultVal;
+int tryToFindArgValue(std::string argName, int argc, char **argv, int defaultVal) {
+	try {
+		for (int i = 0; i < argc - 1; i++) {
+			if (argv[i] == argName) {
+				return std::stoi(argv[i + 1]);
+			}
+		}
+	} catch (const std::invalid_argument &err) {
+		printf("invalid value for %s - using default of %d\n", argName.c_str(), defaultVal);
+	}
+	return defaultVal;
 }
 
-std::string tryToFindArgValue(std::string argName, int argc, char **argv,
-                              std::string defaultVal) {
-  for (int i = 0; i < argc - 1; i++) {
-    if (argv[i] == argName) {
-      return argv[i + 1];
-    }
-  }
-  return defaultVal;
+std::string tryToFindArgValue(std::string argName, int argc, char **argv, std::string defaultVal) {
+	for (int i = 0; i < argc - 1; i++) {
+		if (argv[i] == argName) {
+			return argv[i + 1];
+		}
+	}
+	return defaultVal;
 }
 
 std::string createDefaultOutName(std::string orig, std::string ext) {
-  auto lastDot = orig.rfind('.');
-  if (lastDot == -1) {
-    return orig + "." + ext;
-  }
-
-  return orig.substr(0, lastDot + 1) + ext;
+	auto lastDot = orig.rfind('.');
+	if (lastDot == std::string::npos) {
+		return orig + "." + ext;
+	}
+	return orig.substr(0, lastDot + 1) + ext;
 }
 
 int main(int argc, char **argv) {
+	if (argc < 2) {
+		printUsage();
+		return 1;
+	}
 
-  if (argc < 2) {
-    printUsage();
-    return 1;
-  }
-  verbose = tryToFindFlag("-v", argc, argv, false);
-  std::string path = argv[1];
+	verbose = tryToFindFlag("-v", argc, argv, false);
+	std::string path = argv[1];
+	bool binary = tryToFindFlag("-b", argc, argv, false);
+	std::string defaultOut = createDefaultOutName(path, binary ? "prev" : "png");
+	std::string outputFile = tryToFindArgValue("-o", argc, argv, defaultOut);
 
-  bool binary = tryToFindFlag("-b", argc, argv, false);
+	auto wav = readFileToMono(path);
 
-  std::string defaultOut = createDefaultOutName(path, binary ? "prev" : "png");
+	if (wav.empty()) {
+		printf("Error: could not read audio file '%s'\n", path.c_str());
+		return 1;
+	}
 
-  std::string outputFile = tryToFindArgValue("-o", argc, argv, defaultOut);
+	int width = tryToFindArgValue("-w", argc, argv, 256);
+	int height = tryToFindArgValue("-h", argc, argv, 256);
 
-  try {
+	if (verbose) {
+		if (binary) {
+			printf("rendering waveform to binary file of length %d  path: %s\n", width, outputFile.c_str());
+		} else {
+			printf("rendering waveform to %d x %d image to file %s\n", width, height, outputFile.c_str());
+		}
+	}
 
-    auto wav = readFileToMono(path);
+	if (binary) {
+		return writeToBinary(wav, outputFile, width) ? 0 : 1;
+	}
 
-    int width = tryToFindArgValue("-w", argc, argv, 256);
-    int height = tryToFindArgValue("-h", argc, argv, 256);
+	auto preview = createPreviewFromWav(wav, width);
+	auto bmp = renderToBitmap(preview, height);
 
-    if (verbose) {
-      if (binary) {
-        printf("rendering waveform to binary file of length %d  path: %s\n",
-               width, outputFile.c_str());
-      } else {
-        printf("rendering waveform to %d x %d image to file %s\n", width,
-               height, outputFile.c_str());
-      }
-    }
-
-    if (binary) {
-      return writeToBinary(wav, outputFile, width) ? 1 : 0;
-    }
-
-    auto preview = createPreviewFromWav(wav, width);
-    auto bmp = renderToBitmap(preview, height);
-
-    int res = stbi_write_png(outputFile.c_str(), width, height, 4, bmp.data(),
-                             width * 4);
-    if (!res) {
-      printf("failed to write file properly");
-    }
-    return !res;
-  } catch (const std::runtime_error &err) {
-    printf("There was an error - perhaps input file doesn't exist\n");
-    return 1;
-  }
-
-  return 0;
+	int res = stbi_write_png(outputFile.c_str(), width, height, 4, bmp.data(), width * 4);
+	if (!res) {
+		printf("failed to write file properly\n");
+	}
+	return !res;
 }
