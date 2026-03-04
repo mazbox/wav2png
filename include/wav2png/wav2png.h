@@ -42,6 +42,19 @@ static std::vector<MinMax> createPreviewFromWav(const std::vector<float> &wav, i
 	return preview;
 }
 
+static float mapf(float inp, float inMin, float inMax, float outMin,
+				   float outMax, bool clamp = false) {
+	float norm = (inp - inMin) / (inMax - inMin);
+	float f	   = outMin + (outMax - outMin) * norm;
+	if (clamp) {
+		if (outMax > outMin) {
+			return std::clamp(f, outMin, outMax);
+		}
+		return std::clamp(f, outMax, outMin);
+	}
+	return f;
+}
+
 struct rgba {
 	uint8_t r = 0;
 	uint8_t g = 0;
@@ -64,7 +77,7 @@ struct rgba {
  * Returns a pixel array suitable to create an image. Image width is specified
  * by the preview length as set in createPreviewFromWav.
  */
-std::vector<rgba> renderToBitmap(const std::vector<MinMax> &preview,
+static std::vector<rgba> renderToBitmap(const std::vector<MinMax> &preview,
 								 int height,
 								 rgba bg = rgba(0, 0, 0),
 								 rgba fg = rgba(255, 255, 255)) {
@@ -83,7 +96,7 @@ std::vector<rgba> renderToBitmap(const std::vector<MinMax> &preview,
 	return img;
 }
 
-bool writePrevFile(std::vector<MinMax> &prev, std::string path) {
+static bool writePrevFile(std::vector<MinMax> &prev, std::string path) {
 	std::vector<uint8_t> data;
 	data.reserve(prev.size() * 2);
 	for (const auto &p: prev) {
@@ -100,7 +113,7 @@ bool writePrevFile(std::vector<MinMax> &prev, std::string path) {
 	return true;
 }
 
-bool writeToBinary(const std::vector<float> &wav, const std::string &outputFile, int width = 256) {
+static bool writeToBinary(const std::vector<float> &wav, const std::string &outputFile, int width = 256) {
 	auto preview = createPreviewFromWav(wav, width);
 	return writePrevFile(preview, outputFile);
 }
