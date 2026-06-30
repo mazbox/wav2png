@@ -12,16 +12,11 @@ set(CMAKE_CXX_STANDARD 17)
 option(BUILD_STANDALONE "Should there be a standalone of the application?" OFF)
 
 if(BUILD_STANDALONE)
-  include(CPM.cmake)
-  cpmaddpackage(
-    NAME dr_libs
-    GITHUB_REPOSITORY "mackron/dr_libs"
-    GIT_TAG fa931f3
-    DOWNLOAD_ONLY YES)
+  # dr_libs and stb are vendored in src/, so no fetch needed.
   add_executable(wav2png src/main.cpp)
+  target_compile_options(wav2png PRIVATE -O3)
   target_include_directories(wav2png
-                             PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
-                                     ${dr_libs_SOURCE_DIR})
+                             PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 else()
 
   include(GNUInstallDirs)
@@ -31,8 +26,6 @@ else()
     wav2png
     INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/wav2png>
               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-
-  include(CPM.cmake)
 
   install(TARGETS wav2png EXPORT wav2pngTargets)
   install(
