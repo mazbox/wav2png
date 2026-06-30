@@ -2,6 +2,32 @@
 
 Renders a wav file into a png or a binary file for use elsewhere.
 
+## Building
+
+Two ways to build the standalone command-line tool. All dependencies
+(dr_libs, stb) are vendored in `src/`, so neither needs a network fetch.
+
+**Zero-dependency shell script** (just needs a C++ compiler):
+
+```
+./build.sh
+```
+
+Produces `./wav2png`. Override the compiler or output name with the
+`CXX` and `OUT` environment variables.
+
+**CMake:**
+
+```
+cmake -S . -B build -DBUILD_STANDALONE=ON
+cmake --build build
+```
+
+Produces `build/wav2png`. Both paths compile at `-O3` and produce
+identical output.
+
+## Usage
+
 ```
 		Usage:                                                             
 		       wav2png audio.wav -o wav.png [options]                      
